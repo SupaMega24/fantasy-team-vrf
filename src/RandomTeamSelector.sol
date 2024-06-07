@@ -37,6 +37,10 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus {
 
     // Events
     event SelectionMade(uint256 indexed requestId, address indexed manager);
+    event SelectionRevealed(
+        uint256 indexed requestId,
+        uint256 indexed teamValue
+    );
 
     constructor(uint256 subscriptionId) VRFConsumerBaseV2Plus(vrfCoordinator) {
         s_subscriptionId = subscriptionId;
@@ -67,5 +71,76 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus {
         s_managers[requestId] = manager;
         s_results[manager] = SELECTION_ONGOING;
         emit SelectionMade(requestId, manager);
+    }
+
+    /**
+     * @notice Callback function used by VRF Coordinator to return the random number to this contract.
+     * @dev The VRF Coordinator along with the parent contract (VRFConsumerBaseV2Plus) ensure randomness
+     *      Only verified responses are sent to this function     *
+     */
+
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] calldata randomWords
+    ) internal override {
+        uint256 teamValue = (randomWords[0] % 20) + 1;
+        s_results[s_managers[requestId]] = teamValue;
+        emit SelectionRevealed(requestId, teamValue);
+    }
+
+    /**
+     * @notice Get team name from the id
+     * @param id uint256
+     * @return team name string
+     * @dev These names are an initial list.
+     * They are based largely on mythical or fantasy creatures
+     * Feel free to change or expand on the list
+     * @param id uint256
+     */
+
+    function getTeamName(uint256 id) private pure returns (string memory) {
+        string[40] memory teamNames = [
+            "Phoenix",
+            "Seraphs",
+            "Revenants",
+            "Leviathans",
+            "Frostbite",
+            "Zephyrs",
+            "Luminaries",
+            "Spectres",
+            "Tempests",
+            "Juggernauts",
+            "Nightmares",
+            "Thunderbolts",
+            "Wyverns",
+            "Paladins",
+            "Arcanes",
+            "Celestials",
+            "Drakes",
+            "Rampage",
+            "Sentinels",
+            "Behemoths",
+            "Griffins",
+            "Minotaurs",
+            "Hydras",
+            "Chimera",
+            "Phoenixes",
+            "Basilisks",
+            "Manticores",
+            "Krakens",
+            "Nymphs",
+            "Wendigos",
+            "Gorgons",
+            "Centaurs",
+            "Djinns",
+            "Valkyries",
+            "Banshees",
+            "Lycans",
+            "Sylphs",
+            "Dryads",
+            "Sphinxes",
+            "Hippogriffs"
+        ];
+        return teamNames[id - 1];
     }
 }
