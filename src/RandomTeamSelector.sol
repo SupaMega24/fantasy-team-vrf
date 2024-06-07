@@ -89,6 +89,20 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus {
     }
 
     /**
+     * @notice get the team name once randome selection is made
+     * @dev set customer revert logic and return the getter function
+     *
+     */
+    function teamName(address player) public view returns (string memory) {
+        require(s_results[player] != 0, "Selection not made");
+        require(
+            s_results[player] != SELECTION_ONGOING,
+            "Selection in progress"
+        );
+        return getTeamName(s_results[player]);
+    }
+
+    /**
      * @notice Get team name from the id
      * @param id uint256
      * @return team name string
