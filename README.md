@@ -1,66 +1,35 @@
-## Foundry
+# Random Team Name Selector Smart Contract
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Overview
+The Random Team Selector is a Solidity smart contract designed to integrate with Chainlink's Verifiable Random Function (VRF) to provide verifiable randomness in the selection of team names. This contract is part of a decentralized application that connects shoe brands with customers and rewards users for their health activity.
 
-Foundry consists of:
+## Features
+- **Random Team Name Requests**: Allows the contract owner to initiate a request for random team names for a manager.
+- **Chainlink VRF Integration**: Utilizes Chainlink VRF to ensure that the randomness provided for the team name selection is provably fair and tamper-proof.
+- **Team Selection Storage**: Records the manager's chosen team name on-chain, ensuring transparency and immutability of the selection.
+- **Manager Interaction**: Provides functions for managers to retrieve their team options and make their selection.
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Functions
+- `requestRandomTeamNames(address manager)`: Initiates the random team name selection process for the provided manager address.
+- `fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)`: Callback function used by Chainlink VRF to provide the random words.
+- `getTeamOptions(address manager)`: Retrieves the available team options for the provided manager address.
+- `chooseTeam(uint256 teamId)`: Allows a manager to choose a team from the provided options.
+- `teamName(address player)`: Retrieves the name of the team chosen by the provided player address.
 
-## Documentation
+## Events
+- `SelectionMade`: Emitted when a selection process is initiated.
+- `SelectionRevealed`: Emitted when the random selection is revealed.
+- `TeamChosen`: Emitted when a manager makes their team choice.
 
-https://book.getfoundry.sh/
+## Development Setup
+To set up the development environment for the Random Team Selector smart contract, follow these steps:
 
-## Usage
+1. WILL ADD LATER:
 
-### Build
 
-```shell
-$ forge build
-```
+## Frontend Integration
+The smart contract is designed to work with a frontend interface that displays the team options to the user and captures their selection. The frontend should interact with the smart contract using a web3 provider like MetaMask.
 
-### Test
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
