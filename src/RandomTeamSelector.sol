@@ -1,57 +1,92 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+// Importing Chainlink's VRFConsumerBaseV2Plus for verifiable randomness
+// Importing Chainlink's VRFV2PlusClient library for VRF requests
+// Importing the TeamNames contract which contains team names data
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {TeamNames} from "./TeamNames.sol";
 
 /**
  * @title Random Team Selector/Fantasy
  * @author Charlie J
- * @notice This contract requests randomness. It is strictly for entertainment.
- *         The team names are not real and have no association with an real professional teams or otherwise.
- * @dev This contract inherits
+ * @dev This contract inherits VRFConsumerBaseV2Plus and TeamNames
  */
+contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
+    // *****Errors*****
+    error RandomTeamSelector__AlreadySelected();
+    error RandomTeamSelector__NoSelectionOptionsAvailable();
+    error RandomTeamSelector__SelectionNotMade();
+    error RandomTeamSelector__InvalidTeamChoice();
 
-contract RandomTeamSelector is VRFConsumerBaseV2Plus {
-    // Errors
-    error RandomTeamSelector__All_ready_selected();
+    // ***** State Variables *****
+    uint256 private constant SELECTION_ONGOING = 24; // arbitrary number, no meaning
+    uint256 public s_subscriptionId; // Subscription ID for the Chainlink VRF service
 
-    // State Variables
-    uint256 private constant SELECTION_ONGOING = 24; // arbitray number, no meaning
-    uint256 public s_subscriptionId;
-
-    // Sepolia coordinator. For other networks,
+    // Sepolia vrfCoordinator
+    // For other networks,
     // see https://docs.chain.link/vrf/v2-5/supported-networks#configurations
     address public vrfCoordinator = 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
 
+    // Sepolia Gas Lane
+    // For a list of available gas lanes on each network,
     // see https://docs.chain.link/vrf/v2-5/supported-networks#configurations
     bytes32 public s_keyHash =
         0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
 
-    uint32 public callbackGasLimit = 40000;
-    uint16 public requestConfirmations = 3;
-    uint32 public numWords = 1;
+    uint32 public callbackGasLimit = 300000; // Gas limit for the VRF callback function
+    uint16 public requestConfirmations = 3; // Number of confirmations required for the VRF request
+    uint32 public numWords = 3; // Request 3 random words
 
-    mapping(uint256 => address) private s_managers;
-    mapping(address => uint256) private s_results;
+    // Struct to store manager's team selection options and their final choice
+    struct ManagerSelection {
+        uint256[] teamOptions;
+        uint256 selectedTeam;
+    }
 
-    // Events
+    /**
+     * @notice Mappings explained in order as listed
+     * Mapping to associate VRF request IDs with managers' addresses
+     * Mapping to store each manager's selection details
+     */
+
+    mapping(uint256 => address) private s_requestToManager;
+    mapping(address => ManagerSelection) private s_managerSelections;
+
+    /**
+     * @notice Events explained in order as listed below
+     * SelectionMade emitted when a selection is made
+     * SelectionRevealed emitted when the random selection is revealed
+     * TeamChosen emitted when a manager chooses a team
+     */
+
     event SelectionMade(uint256 indexed requestId, address indexed manager);
-    event SelectionRevealed(
-        uint256 indexed requestId,
-        uint256 indexed teamValue
-    );
+    event SelectionRevealed(uint256 indexed requestId, uint256[] teamValues);
+    event TeamChosen(address indexed manager, uint256 teamId);
+
+    /**
+     * @notice Constructor to set up the random team selector contract
+     * It inherits the VRFConsumerBaseV2Plus
+     * @param subscriptionId The Chainlink VRF subscription ID
+     */
 
     constructor(uint256 subscriptionId) VRFConsumerBaseV2Plus(vrfCoordinator) {
         s_subscriptionId = subscriptionId;
     }
 
-    function getRandomTeamName(
+    /**
+     * @notice Initiates the process to randomly select team names for a manager
+     * @dev Only the owner can call this function. Emits the SelectionMade event.
+     * @param manager The address of the manager requesting random teams
+     * @return requestId The request ID of the VRF request
+     */
+
+    function requestRandomTeamNames(
         address manager
     ) public onlyOwner returns (uint256 requestId) {
-        // Revert if manager has already selected
-        if (s_results[manager] != 0) {
-            revert RandomTeamSelector__All_ready_selected();
+        if (s_managerSelections[manager].teamOptions.length > 0) {
+            revert RandomTeamSelector__AlreadySelected();
         }
 
         requestId = s_vrfCoordinator.requestRandomWords(
@@ -62,99 +97,99 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus {
                 callbackGasLimit: callbackGasLimit,
                 numWords: numWords,
                 extraArgs: VRFV2PlusClient._argsToBytes(
-                    // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
                     VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
                 )
             })
         );
 
-        s_managers[requestId] = manager;
-        s_results[manager] = SELECTION_ONGOING;
+        s_requestToManager[requestId] = manager;
+        s_managerSelections[manager].selectedTeam = SELECTION_ONGOING;
         emit SelectionMade(requestId, manager);
     }
 
     /**
-     * @notice Callback function used by VRF Coordinator to return the random number to this contract.
-     * @dev The VRF Coordinator along with the parent contract (VRFConsumerBaseV2Plus) ensure randomness
-     *      Only verified responses are sent to this function     *
+     * @notice Callback function used by VRF to provide randomness
+     * @dev This override is required by VRFConsumerBaseV2Plus. Emits the SelectionRevealed event.
+     * @param requestId The request ID of the VRF request
+     * @param randomWords The array of random words provided by VRF
      */
 
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] calldata randomWords
     ) internal override {
-        uint256 teamValue = (randomWords[0] % 20) + 1;
-        s_results[s_managers[requestId]] = teamValue;
-        emit SelectionRevealed(requestId, teamValue);
+        address manager = s_requestToManager[requestId];
+        uint256[] memory teamOptions = new uint256[](numWords);
+
+        for (uint256 i = 0; i < numWords; i++) {
+            teamOptions[i] = (randomWords[i] % 40) + 1;
+        }
+
+        s_managerSelections[manager] = ManagerSelection({
+            teamOptions: teamOptions,
+            selectedTeam: 0
+        });
+
+        emit SelectionRevealed(requestId, teamOptions);
     }
 
     /**
-     * @notice get the team name once randome selection is made
-     * @dev set customer revert logic and return the getter function
-     *
+     * @notice Retrieves the name of the team chosen by a player
+     * @dev Requires that a selection has been made. Calls getTeamName from TeamNames.
+     * @param player The address of the player whose team name is being requested
+     * @return The name of the selected team
      */
+
     function teamName(address player) public view returns (string memory) {
-        require(s_results[player] != 0, "Selection not made");
-        require(
-            s_results[player] != SELECTION_ONGOING,
-            "Selection in progress"
-        );
-        return getTeamName(s_results[player]);
+        ManagerSelection storage selection = s_managerSelections[player];
+        if (selection.selectedTeam == 0) {
+            revert RandomTeamSelector__SelectionNotMade();
+        }
+        return getTeamName(selection.selectedTeam);
     }
 
     /**
-     * @notice Get team name from the id
-     * @param id uint256
-     * @return team name string
-     * @dev These names are an initial list.
-     * They are based largely on mythical or fantasy creatures
-     * Feel free to change or expand on the list
-     * @param id uint256
+     * @notice Retrieves all the team options available for a manager
+     * @param manager The address of the manager whose team options are being requested
+     * @return An array of team IDs representing the available team options
      */
 
-    function getTeamName(uint256 id) private pure returns (string memory) {
-        string[40] memory teamNames = [
-            "Phoenix",
-            "Seraphs",
-            "Revenants",
-            "Leviathans",
-            "Frostbite",
-            "Zephyrs",
-            "Luminaries",
-            "Spectres",
-            "Tempests",
-            "Juggernauts",
-            "Nightmares",
-            "Thunderbolts",
-            "Wyverns",
-            "Paladins",
-            "Arcanes",
-            "Celestials",
-            "Drakes",
-            "Rampage",
-            "Sentinels",
-            "Behemoths",
-            "Griffins",
-            "Minotaurs",
-            "Hydras",
-            "Chimera",
-            "Phoenixes",
-            "Basilisks",
-            "Manticores",
-            "Krakens",
-            "Nymphs",
-            "Wendigos",
-            "Gorgons",
-            "Centaurs",
-            "Djinns",
-            "Valkyries",
-            "Banshees",
-            "Lycans",
-            "Sylphs",
-            "Dryads",
-            "Sphinxes",
-            "Hippogriffs"
-        ];
-        return teamNames[id - 1];
+    function getTeamOptions(
+        address manager
+    ) public view returns (uint256[] memory) {
+        ManagerSelection storage selection = s_managerSelections[manager];
+        if (selection.selectedTeam != SELECTION_ONGOING) {
+            revert RandomTeamSelector__NoSelectionOptionsAvailable();
+        }
+        return selection.teamOptions;
+    }
+
+    /**
+     * @notice Allows a manager to choose a team from their selection options
+     * @dev Emits the TeamChosen event.
+     * @param teamId The ID of the team being chosen
+     */
+
+    function chooseTeam(uint256 teamId) public {
+        ManagerSelection storage selection = s_managerSelections[msg.sender];
+        require(
+            selection.selectedTeam == SELECTION_ONGOING,
+            "Selection process not ongoing or already completed."
+        );
+
+        bool validChoice = false;
+        for (uint256 i = 0; i < selection.teamOptions.length; i++) {
+            if (selection.teamOptions[i] == teamId) {
+                validChoice = true;
+                break;
+            }
+        }
+
+        if (!validChoice) {
+            revert RandomTeamSelector__InvalidTeamChoice();
+        }
+
+        selection.selectedTeam = teamId;
+        emit TeamChosen(msg.sender, teamId);
     }
 }
