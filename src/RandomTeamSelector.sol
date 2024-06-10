@@ -11,8 +11,10 @@ import {TeamNames} from "./TeamNames.sol";
 /**
  * @title Random Team Selector/Fantasy
  * @author Charlie J
- * @dev This contract inherits VRFConsumerBaseV2Plus and TeamNames
+ * @dev This contract inherits VRFConsumerBaseV2Plus to get randomness from vrfCoordinator
+ * and TeamNames to get names randomly from a list
  */
+
 contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
     // *****Errors*****
     error RandomTeamSelector__AlreadySelected();
@@ -127,7 +129,7 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
 
         s_managerSelections[manager] = ManagerSelection({
             teamOptions: teamOptions,
-            selectedTeam: 0
+            selectedTeam: SELECTION_ONGOING
         });
 
         emit SelectionRevealed(requestId, teamOptions);
