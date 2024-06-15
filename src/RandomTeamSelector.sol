@@ -194,4 +194,16 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
         selection.selectedTeam = teamId;
         emit TeamChosen(msg.sender, teamId);
     }
+
+    /**
+     * @notice the following are getter functions used for
+     * testing and deployment
+     */
+
+    // function getManagerSelection(
+    //     address manager
+    // ) public view returns (uint256[] memory, uint256) {
+    //     ManagerSelection storage selection = s_managerSelections[manager];
+    //     return (selection.teamOptions, selection.selectedTeam);
+    // }
 }
