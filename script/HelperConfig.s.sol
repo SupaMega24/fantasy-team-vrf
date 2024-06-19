@@ -27,22 +27,55 @@ contract HelperConfig is Script {
         }
     }
 
+    /**
+     * @dev the Chainlink VRF V2.5 values of the NetworkConfig below are of Sepolia.
+     * @notice you can get your own values and other networks here
+     *         https://docs.chain.link/vrf/v2-5/supported-networks#overview
+     */
+
     function getSepoliaConfig() public view returns (NetworkConfig memory) {
         return
             NetworkConfig({
-                subId: vm.envUint(""),
-                vrfCoordinator: vm.envAddress(""),
-                gasLane: vm.envBytes32(""),
-                gasLimit: uint32(vm.envUint("")),
-                requestConfirmations: uint16(vm.envUint("")),
-                numWords: uint32(vm.envUint("")),
-                deployerKey: vm.envUint("")
+                subId: vm.envUint("SUBSCRIPTION_ID"),
+                vrfCoordinator: vm.envAddress("VRFCOORDINATOR_ADDRESS"),
+                gasLane: vm.envBytes32("KEY_HASH"),
+                gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
+                requestConfirmations: uint16(
+                    vm.envUint("REQUEST_CONFIRMATIONS")
+                ),
+                numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
+                deployerKey: vm.envUint("PRIVATE_KEY")
             });
     }
 
-    function getOrCreateAnvilConfig()
-        public
-        view
-        returns (NetworkConfig memory)
-    {}
+    function getOrCreateAnvilConfig() public returns (NetworkConfig memory) {
+        if (activeNetworkConfig.vrfCoordinator != address(0)) {
+            return activeNetworkConfig;
+        }
+
+        uint96 baseFee = 1e18; // 1 LINK
+        uint96 gasPrice = 1e9; // 1 gwei
+        int256 weiPerUnitLink = 1e18; // 1 LINK
+
+        vm.startBroadcast();
+        VRFCoordinatorV2_5Mock vrfCoordinatorV2_5Mock = new VRFCoordinatorV2_5Mock(
+                baseFee,
+                gasPrice,
+                weiPerUnitLink
+            );
+        vm.stopBroadcast();
+
+        return
+            NetworkConfig({
+                subId: 0,
+                vrfCoordinator: address(vrfCoordinatorV2_5Mock),
+                gasLane: vm.envBytes32("KEY_HASH"),
+                gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
+                requestConfirmations: uint16(
+                    vm.envUint("REQUEST_CONFIRMATIONS")
+                ),
+                numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
+                deployerKey: vm.envUint("DEFAULT_ANVIL_KEY")
+            });
+    }
 }
