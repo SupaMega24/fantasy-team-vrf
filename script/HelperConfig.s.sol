@@ -67,7 +67,7 @@ contract HelperConfig is Script {
 
         return
             NetworkConfig({
-                subId: 0,
+                subId: vm.envUint("SUBSCRIPTION_ID"),
                 vrfCoordinator: address(vrfCoordinatorV2_5Mock),
                 gasLane: vm.envBytes32("KEY_HASH"),
                 gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
