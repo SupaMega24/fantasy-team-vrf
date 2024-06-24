@@ -43,8 +43,8 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
      * Mapping to store each manager's selection details
      */
 
-    mapping(uint256 => address) internal s_requestToManager;
-    mapping(address => ManagerSelection) internal s_managerSelections;
+    mapping(uint256 => address) private s_requestToManager;
+    mapping(address => ManagerSelection) private s_managerSelections;
 
     /**
      * @notice Events explained in order as listed below
@@ -125,8 +125,10 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
         address manager = s_requestToManager[requestId];
         uint256[] memory teamOptions = new uint256[](i_numWords);
 
-        for (uint256 i = 0; i < i_numWords; i++) {
-            teamOptions[i] = (randomWords[i] % 40) + 1;
+        unchecked {
+            for (uint256 i = 0; i < i_numWords; i++) {
+                teamOptions[i] = (randomWords[i] % 40) + 1;
+            }
         }
 
         s_managerSelections[manager] = ManagerSelection({
@@ -176,10 +178,9 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
 
     function chooseTeam(uint256 teamId) public {
         ManagerSelection storage selection = s_managerSelections[msg.sender];
-        require(
-            selection.selectedTeam == SELECTION_ONGOING,
-            "Selection process not ongoing or already completed."
-        );
+        if (selection.selectedTeam != SELECTION_ONGOING) {
+            revert RandomTeamSelector__SelectionNotMade();
+        }
 
         bool validChoice = false;
         for (uint256 i = 0; i < selection.teamOptions.length; i++) {
