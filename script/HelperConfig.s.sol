@@ -33,22 +33,26 @@ contract HelperConfig is Script {
      *         https://docs.chain.link/vrf/v2-5/supported-networks#overview
      */
 
-    function getSepoliaConfig() public view returns (NetworkConfig memory) {
-        return
-            NetworkConfig({
-                subId: vm.envUint("SUBSCRIPTION_ID"),
-                vrfCoordinator: vm.envAddress("VRFCOORDINATOR_ADDRESS"),
-                gasLane: vm.envBytes32("KEY_HASH"),
-                gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
-                requestConfirmations: uint16(
-                    vm.envUint("REQUEST_CONFIRMATIONS")
-                ),
-                numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
-                deployerKey: vm.envUint("PRIVATE_KEY")
-            });
+    function getSepoliaConfig()
+        public
+        view
+        returns (NetworkConfig memory sepoliaNetworkConfig)
+    {
+        sepoliaNetworkConfig = NetworkConfig({
+            subId: vm.envUint("SUBSCRIPTION_ID"),
+            vrfCoordinator: vm.envAddress("VRFCOORDINATOR_ADDRESS"),
+            gasLane: vm.envBytes32("KEY_HASH"),
+            gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
+            requestConfirmations: uint16(vm.envUint("REQUEST_CONFIRMATIONS")),
+            numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
+            deployerKey: vm.envUint("PRIVATE_KEY")
+        });
     }
 
-    function getOrCreateAnvilConfig() public returns (NetworkConfig memory) {
+    function getOrCreateAnvilConfig()
+        public
+        returns (NetworkConfig memory anvilNetworkConfig)
+    {
         if (activeNetworkConfig.vrfCoordinator != address(0)) {
             return activeNetworkConfig;
         }
@@ -65,17 +69,14 @@ contract HelperConfig is Script {
             );
         vm.stopBroadcast();
 
-        return
-            NetworkConfig({
-                subId: vm.envUint("SUBSCRIPTION_ID"),
-                vrfCoordinator: address(vrfCoordinatorV2_5Mock),
-                gasLane: vm.envBytes32("KEY_HASH"),
-                gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
-                requestConfirmations: uint16(
-                    vm.envUint("REQUEST_CONFIRMATIONS")
-                ),
-                numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
-                deployerKey: vm.envUint("DEFAULT_ANVIL_KEY")
-            });
+        anvilNetworkConfig = NetworkConfig({
+            subId: vm.envUint("SUBSCRIPTION_ID"),
+            vrfCoordinator: address(vrfCoordinatorV2_5Mock),
+            gasLane: vm.envBytes32("KEY_HASH"),
+            gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
+            requestConfirmations: uint16(vm.envUint("REQUEST_CONFIRMATIONS")),
+            numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
+            deployerKey: vm.envUint("DEFAULT_ANVIL_KEY")
+        });
     }
 }
