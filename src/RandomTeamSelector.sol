@@ -7,6 +7,7 @@ pragma solidity ^0.8.19;
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {TeamNames} from "./TeamNames.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title Random Team Selector/Fantasy
@@ -24,22 +25,12 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
 
     // ***** State Variables *****
     uint256 private constant SELECTION_ONGOING = 24; // arbitrary number, no meaning
-    uint256 public s_subscriptionId; // Subscription ID for the Chainlink VRF service
-
-    // Sepolia vrfCoordinator
-    // For other networks,
-    // see https://docs.chain.link/vrf/v2-5/supported-networks#configurations
-    address public vrfCoordinator = 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
-
-    // Sepolia Gas Lane
-    // For a list of available gas lanes on each network,
-    // see https://docs.chain.link/vrf/v2-5/supported-networks#configurations
-    bytes32 public s_keyHash =
-        0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
-
-    uint32 public callbackGasLimit = 300000; // Gas limit for the VRF callback function
-    uint16 public requestConfirmations = 3; // Number of confirmations required for the VRF request
-    uint32 public numWords = 3; // Request 3 random words
+    uint256 private immutable i_subscriptionId; // Subscription ID for the Chainlink VRF service
+    address private immutable i_vrfCoordinator; // Sepolia vrfCoordinator
+    bytes32 private immutable i_keyHash; // Sepolia Gas LaneGas Lane
+    uint32 private immutable i_callbackGasLimit; // Gas limit for the VRF callback function
+    uint16 private immutable i_requestConfirmations; // Number of confirmations required for the VRF request
+    uint32 private immutable i_numWords; // Number of random words to request
 
     // Struct to store manager's team selection options and their final choice
     struct ManagerSelection {
@@ -70,11 +61,23 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
     /**
      * @notice Constructor to set up the random team selector contract
      * It inherits the VRFConsumerBaseV2Plus
-     * @param subscriptionId The Chainlink VRF subscription ID
+     * @param subscriptionId...etc variables needed for The Chainlink VRF
      */
 
-    constructor(uint256 subscriptionId) VRFConsumerBaseV2Plus(vrfCoordinator) {
-        s_subscriptionId = subscriptionId;
+    constructor(
+        address vrfCoordinator,
+        uint256 subscriptionId,
+        bytes32 keyHash,
+        uint32 callbackGasLimit,
+        uint16 requestConfirmations,
+        uint32 numWords
+    ) VRFConsumerBaseV2Plus(vrfCoordinator) {
+        i_vrfCoordinator = vrfCoordinator;
+        i_subscriptionId = subscriptionId;
+        i_keyHash = keyHash;
+        i_callbackGasLimit = callbackGasLimit;
+        i_requestConfirmations = requestConfirmations;
+        i_numWords = numWords;
     }
 
     /**
@@ -93,11 +96,11 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
 
         requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
-                keyHash: s_keyHash,
-                subId: s_subscriptionId,
-                requestConfirmations: requestConfirmations,
-                callbackGasLimit: callbackGasLimit,
-                numWords: numWords,
+                keyHash: i_keyHash,
+                subId: i_subscriptionId,
+                requestConfirmations: i_requestConfirmations,
+                callbackGasLimit: i_callbackGasLimit,
+                numWords: i_numWords,
                 extraArgs: VRFV2PlusClient._argsToBytes(
                     VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
                 )
@@ -121,10 +124,12 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
         uint256[] calldata randomWords
     ) internal override {
         address manager = s_requestToManager[requestId];
-        uint256[] memory teamOptions = new uint256[](numWords);
+        uint256[] memory teamOptions = new uint256[](i_numWords);
 
-        for (uint256 i = 0; i < numWords; i++) {
-            teamOptions[i] = (randomWords[i] % 40) + 1;
+        unchecked {
+            for (uint256 i = 0; i < i_numWords; i++) {
+                teamOptions[i] = (randomWords[i] % 40) + 1;
+            }
         }
 
         s_managerSelections[manager] = ManagerSelection({
@@ -174,10 +179,9 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
 
     function chooseTeam(uint256 teamId) public {
         ManagerSelection storage selection = s_managerSelections[msg.sender];
-        require(
-            selection.selectedTeam == SELECTION_ONGOING,
-            "Selection process not ongoing or already completed."
-        );
+        if (selection.selectedTeam != SELECTION_ONGOING) {
+            revert RandomTeamSelector__SelectionNotMade();
+        }
 
         bool validChoice = false;
         for (uint256 i = 0; i < selection.teamOptions.length; i++) {
@@ -200,10 +204,16 @@ contract RandomTeamSelector is VRFConsumerBaseV2Plus, TeamNames {
      * testing and deployment
      */
 
-    // function getManagerSelection(
-    //     address manager
-    // ) public view returns (uint256[] memory, uint256) {
-    //     ManagerSelection storage selection = s_managerSelections[manager];
-    //     return (selection.teamOptions, selection.selectedTeam);
-    // }
+    function getRequestToManager(
+        uint256 requestId
+    ) public view returns (address) {
+        return s_requestToManager[requestId];
+    }
+
+    function getManagerSelection(
+        address manager
+    ) public view returns (uint256[] memory teamOptions, uint256 selectedTeam) {
+        ManagerSelection storage selection = s_managerSelections[manager];
+        return (selection.teamOptions, selection.selectedTeam);
+    }
 }
