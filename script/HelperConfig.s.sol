@@ -5,6 +5,15 @@ import {Script} from "forge-std/Script.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
 contract HelperConfig is Script {
+    //** State Variables **//
+    uint256 subscriptionId = vm.envUint("SUBSCRIPTION_ID");
+    address vrfCoordinatorAddress = vm.envAddress("VRFCOORDINATOR_ADDRESS");
+    bytes32 keyHash = vm.envBytes32("KEY_HASH");
+    uint32 callbackGasLimit = uint32(vm.envUint("CALLBACK_GAS_LIMIT"));
+    uint16 requestConfirmations = uint16(vm.envUint("REQUEST_CONFIRMATIONS"));
+    uint32 numberOfWords = uint32(vm.envUint("NUMBER_OF_WORDS"));
+    uint256 privateKey = vm.envUint("PRIVATE_KEY");
+
     struct NetworkConfig {
         uint256 subId;
         address vrfCoordinator;
@@ -39,13 +48,13 @@ contract HelperConfig is Script {
         returns (NetworkConfig memory sepoliaNetworkConfig)
     {
         sepoliaNetworkConfig = NetworkConfig({
-            subId: vm.envUint("SUBSCRIPTION_ID"),
-            vrfCoordinator: vm.envAddress("VRFCOORDINATOR_ADDRESS"),
-            gasLane: vm.envBytes32("KEY_HASH"),
-            gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
-            requestConfirmations: uint16(vm.envUint("REQUEST_CONFIRMATIONS")),
-            numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
-            deployerKey: vm.envUint("PRIVATE_KEY")
+            subId: subscriptionId,
+            vrfCoordinator: vrfCoordinatorAddress,
+            gasLane: keyHash,
+            gasLimit: callbackGasLimit,
+            requestConfirmations: requestConfirmations,
+            numWords: numberOfWords,
+            deployerKey: privateKey
         });
     }
 
@@ -70,13 +79,13 @@ contract HelperConfig is Script {
         vm.stopBroadcast();
 
         anvilNetworkConfig = NetworkConfig({
-            subId: vm.envUint("SUBSCRIPTION_ID"),
+            subId: subscriptionId,
             vrfCoordinator: address(vrfCoordinatorV2_5Mock),
-            gasLane: vm.envBytes32("KEY_HASH"),
-            gasLimit: uint32(vm.envUint("CALLBACK_GAS_LIMIT")),
-            requestConfirmations: uint16(vm.envUint("REQUEST_CONFIRMATIONS")),
-            numWords: uint32(vm.envUint("NUMBER_OF_WORDS")),
-            deployerKey: vm.envUint("DEFAULT_ANVIL_KEY")
+            gasLane: keyHash,
+            gasLimit: callbackGasLimit,
+            requestConfirmations: requestConfirmations,
+            numWords: numberOfWords,
+            deployerKey: privateKey
         });
     }
 }
